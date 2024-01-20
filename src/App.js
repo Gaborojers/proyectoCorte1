@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import axios from 'axios';
 import './styles/Chat.css';
 
 const port = 3001; // Puerto único para ambos WebSocket y HTTP
-
 const socket = io(`http://localhost:${port}`);
 
 const ChatApp = () => {
@@ -14,6 +14,15 @@ const ChatApp = () => {
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
+    // Obtener mensajes desde el servidor al cargar la página
+    axios.get(`http://localhost:3001/api/messages`, { withCredentials: true })
+      .then((response) => {
+        setMessages(response.data);
+      })
+      .catch((error) => {
+        console.error('Error al obtener mensajes:', error);
+      });
+
     socket.on('message', (newMessage) => {
       setMessages((prevMessages) => [...prevMessages, newMessage]);
       scrollToBottom();
@@ -32,16 +41,16 @@ const ChatApp = () => {
     if (message.trim() === '') {
       return;
     }
-  
+
     const newMessage = {
       username: username,
       message: message,
     };
-  
+
     socket.emit('sendMessage', newMessage);
-  
+
     setMessages((prevMessages) => [...prevMessages, newMessage]);
-  
+
     setMessage('');
   };
 
