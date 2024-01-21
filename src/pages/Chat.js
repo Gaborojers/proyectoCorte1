@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import io from 'socket.io-client';
+import axios from 'axios';
 import '../styles/Chat.css';
-import Login from './Login';
 
 const port = 3001; // Puerto único para ambos WebSocket y HTTP
-
 const socket = io(`http://localhost:${port}`);
 
 const ChatApp = () => {
@@ -12,26 +11,31 @@ const ChatApp = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [users, setUsers] = useState([]);
-  const [loggedInUser, setLoggedInUser] = useState(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    // Configura la escucha del socket solo si hay un usuario autenticado
-    if (loggedInUser) {
-      socket.on('message', (newMessage) => {
-        setMessages((prevMessages) => [...prevMessages, newMessage]);
-        scrollToBottom();
+    // Obtener mensajes desde el servidor al cargar la página
+    axios.get(`http://localhost:3001/api/getMessages`)
+      .then((response) => {
+        setMessages(response.data);
+      })
+      .catch((error) => {
+        console.error('Error al obtener mensajes:', error);
       });
 
-      socket.on('userList', (onlineUsers) => {
-        setUsers(onlineUsers);
-      });
+    socket.on('message', (newMessage) => {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      scrollToBottom();
+    });
 
-      return () => {
-        socket.disconnect();
-      };
-    }
-  }, [loggedInUser]);
+    socket.on('userList', (onlineUsers) => {
+      setUsers(onlineUsers);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   const handleSendMessage = () => {
     if (message.trim() === '') {
@@ -39,7 +43,7 @@ const ChatApp = () => {
     }
 
     const newMessage = {
-      username: loggedInUser.username,
+      username: username,
       message: message,
     };
 
@@ -54,40 +58,10 @@ const ChatApp = () => {
     messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleLogin = (user) => {
-    setLoggedInUser(user);
-    setUsername(user.username);
-  };
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:5000/api/logout', {
-        method: 'GET',
-        credentials: 'include', // Importante para manejar las cookies de sesión
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setLoggedInUser(null);
-        setUsername('');
-      } else {
-        console.error(data.message);
-      }
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
-
-  if (!loggedInUser) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
     <div className="chat-container">
       <div className="chat-header">
         <h1>Chat en Tiempo Real</h1>
-        <button onClick={handleLogout}>Cerrar Sesión</button>
       </div>
       <div className="chat-content">
         <div className="user-list">
