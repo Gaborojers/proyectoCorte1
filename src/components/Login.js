@@ -17,7 +17,11 @@ const Login = ({ onLogin }) => {
   
       if (response.data.success) {
         // Autenticación exitosa
-        onLogin(username);
+        if (typeof onLogin === 'function') {
+          onLogin(username);
+        } else {
+          console.error('Error: onLogin no es una función');
+        }
         setError('');
         // Redirigir a la página de chat después del inicio de sesión exitoso
         navigate('/chat');
@@ -28,6 +32,7 @@ const Login = ({ onLogin }) => {
       console.error('Error al realizar la solicitud de inicio de sesión:', error);
     }
   };
+  
 
   return (
     <div style={{ width: '50%', margin: 'auto', textAlign: 'center' }}>
