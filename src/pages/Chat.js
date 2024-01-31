@@ -17,11 +17,13 @@ const ChatApp = () => {
   const [registeredUsers, setRegisteredUsers] = useState(0);
 
   useEffect(() => {
-    
+    let isMounted = true;
     const fetchOnlineUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/onlineUsers',{timeout:10000});
-        setOnlineUsers(response.data.onlineUsers);
+        const response = await axios.get('http://localhost:3001/api/onlineUsers',{timeout:5000});
+        if(isMounted){
+          setOnlineUsers(response.data.onlineUsers);
+        }
       } catch (error) {
         if (error.code === 'ECONNABORTED') {
           console.error('Tiempo de espera agotado al obtener la cantidad de usuarios en línea.');
@@ -33,29 +35,56 @@ const ChatApp = () => {
 
     const fetchRegisteredUsers = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/registeredUsers',{timeout:10000});
+        const response = await axios.get('http://localhost:3001/api/registeredUsers');
         setRegisteredUsers(response.data.registeredUsers);
       } catch (error) {
         if (error.code === 'ECONNABORTED') {
           console.error('Tiempo de espera agotado al obtener la cantidad de usuarios registrados.');
         } else {
-          console.error('Error al obtener la cantidad de usuarios en línea:', error);
+          console.error('Error al obtener la cantidad de usuarios registrados:', error);
         }
       }
     };
-
+    
+    const waitForRegisteredUsers = async () => {
+      try {
+        const response = await axios.get('http://localhost:3001/api/waitForRegisteredUsers');
+        // La solicitud se resuelve cuando hay un cambio en los usuarios registrados
+        // Vuelve a llamar a la función para obtener la última cantidad
+        setRegisteredUsers(response.data.registeredUsers);
+        // Luego, vuelva a iniciar la espera para futuros cambios
+        waitForRegisteredUsers();
+        console.log("Aquí está");
+      } catch (error) {
+        if (error.code === 'ECONNABORTED') {
+          console.error('Tiempo de espera agotado al esperar la actualización de usuarios registrados.');
+        } else {
+          console.error('Error al esperar la actualización de usuarios registrados:', error);
+        }
+        // Vuelve a iniciar la espera para futuros cambios
+        waitForRegisteredUsers();
+      }
+    };
     const onlineUsersInterval = setInterval(() => {
       if (ws.current.readyState === WebSocket.OPEN) {
         // Solicitar onlineUsers solo si la conexión WebSocket está abierta
         fetchOnlineUsers();
       }
-    }, 5000);
+    }, 2000);
     
     // Obtener mensajes al cargar el componente
     const fetchMessages = async () => {
       try {
-        const response = await axios.get('http://localhost:3001/api/waitForMessages',{timeout:10000});
-        setMessages(response.data);
+        const response = await axios.get('http://localhost:3001/api/waitForMessages', { timeout: 10000 });
+        const responseData = response.data;
+    
+        // Verificar que responseData es un array antes de asignarlo a messages
+        if (Array.isArray(responseData)) {
+          setMessages(responseData);
+          scrollToBottom();
+        } else {
+          console.error('La respuesta no es un array de mensajes:', responseData);
+        }
       } catch (error) {
         if (error.code === 'ECONNABORTED') {
           console.error('Tiempo de espera agotado al obtener los mensajes.');
@@ -66,7 +95,7 @@ const ChatApp = () => {
     };
 
     fetchMessages();
-
+    waitForRegisteredUsers();
     // WebSocket - Inicialización y uso de eventListener
     ws.current = new WebSocket('ws://localhost:3001');
 
@@ -89,10 +118,10 @@ const ChatApp = () => {
 
     // Llamada inicial a fetchRegisteredUsers
     fetchRegisteredUsers();
-
     return () => {
       clearInterval(onlineUsersInterval);
       ws.current.close();
+      isMounted=false;
     };
   }, []);
 
@@ -114,17 +143,20 @@ const ChatApp = () => {
   };
 
   const handleLogout = () => {
-  
     // Cerrar la conexión WebSocket
-    ws.current.close();
-  
-  
+    if(ws.current){
+      ws.current.close();
+      if(!ws.current){
+        console.log.out('Socket Cerrado');
+      }
+    }else{
+      console.log.out("No hay conexiones WS")
+    }
     // Limpiar el estado
     setUsername('');
     setMessage('');
     setMessages([]);
     setUsers([]);
-  
     // Redirigir al usuario a la página de inicio de sesión
     navigate('/');
   };
@@ -132,7 +164,7 @@ const ChatApp = () => {
   const scrollToBottom = () => {
     messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
   };
-
+  
   return (
     <div className={`chat-container ${currentStyle}`}>
       <div className="chat-header">

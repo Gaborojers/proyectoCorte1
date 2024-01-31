@@ -8,30 +8,30 @@ const Login = ({ onLogin }) => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleLogin = async () => {
-    try {
-      const response = await axios.post('http://localhost:3001/api/login', {
-        username: username,
-        password: password,
-      });
-  
-      if (response.data.success) {
-        // Autenticación exitosa
-        if (typeof onLogin === 'function') {
-          onLogin(username);
+    const handleLogin = async () => {
+      try {
+        const response = await axios.post('http://localhost:3001/api/login', {
+          username: username,
+          password: password,
+        });
+    
+        if (response.data.success) {
+          // Autenticación exitosa
+          if (typeof onClick === 'function') {
+            onLogin(username);
+          } else {
+            //console.error('Error: onLogin no es una función');
+          }
+          setError('');
+          // Redirigir a la página de chat después del inicio de sesión exitoso
+          navigate('/chat');
         } else {
-          console.error('Error: onLogin no es una función');
+          setError('Usuario o contraseña incorrectos');
         }
-        setError('');
-        // Redirigir a la página de chat después del inicio de sesión exitoso
-        navigate('/chat');
-      } else {
-        setError('Usuario o contraseña incorrectos');
+      } catch (error) {
+        console.error('Error al realizar la solicitud de inicio de sesión:', error);
       }
-    } catch (error) {
-      console.error('Error al realizar la solicitud de inicio de sesión:', error);
-    }
-  };
+    };
   
 
   return (
